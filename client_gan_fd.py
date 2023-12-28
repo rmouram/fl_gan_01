@@ -43,7 +43,7 @@ def recvall(sock, n):
     return data
 
 # Função para plotar imagens geradas
-def plot_generated_images(epoch, generator, examples=10, dim=(1, 10), figsize=(10, 1)):
+def plot_generated_images(epoch, client_id, generator, examples=10, dim=(1, 10), figsize=(10, 1)):
     noise = np.random.normal(0, 1, size=[examples, latent_dim])
     generated_images = generator.predict(noise)
     generated_images = generated_images.reshape(examples, 28, 28)
@@ -54,7 +54,8 @@ def plot_generated_images(epoch, generator, examples=10, dim=(1, 10), figsize=(1
         plt.imshow(generated_images[i], interpolation='nearest', cmap='gray_r')
         plt.axis('off')
     plt.tight_layout()
-    plt.savefig(f'gan_generated_image_round_{epoch}.png')
+    plt.savefig(f'gan_generated_image_round_{epoch}_client_{client_id}.png')
+
 
 def load_partition(idx: int):
     """Load 1/10th of the training and test data to simulate a partition."""
@@ -81,8 +82,33 @@ x_train = x_train.reshape(x_train.shape[0], 784)
 # Tamanho do vetor de entrada para o gerador
 latent_dim = 100
 
-generator = tf.keras.models.load_model('gan_model_gen')
-discriminator = tf.keras.models.load_model('gan_model_dis')
+# Inicializador de pesos para as camadas da GAN
+initializer = initializers.RandomNormal(mean=0.0, stddev=0.02)
+
+# Constrói o gerador
+generator = Sequential()
+generator.add(Dense(256, input_dim=latent_dim, kernel_initializer=initializer))
+generator.add(LeakyReLU(alpha=0.2))
+generator.add(BatchNormalization(momentum=0.8))
+generator.add(Dense(512, kernel_initializer=initializer))
+generator.add(LeakyReLU(alpha=0.2))
+generator.add(BatchNormalization(momentum=0.8))
+generator.add(Dense(1024, kernel_initializer=initializer))
+generator.add(LeakyReLU(alpha=0.2))
+generator.add(BatchNormalization(momentum=0.8))
+generator.add(Dense(784, activation='tanh', kernel_initializer=initializer))
+generator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))
+
+# Constrói o discriminador
+discriminator = Sequential()
+discriminator.add(Dense(1024, input_dim=784, kernel_initializer=initializer))
+discriminator.add(LeakyReLU(alpha=0.2))
+discriminator.add(Dense(512, kernel_initializer=initializer))
+discriminator.add(LeakyReLU(alpha=0.2))
+discriminator.add(Dense(256, kernel_initializer=initializer))
+discriminator.add(LeakyReLU(alpha=0.2))
+discriminator.add(Dense(1, activation='sigmoid', kernel_initializer=initializer))
+discriminator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))
 
 # Constrói a GAN combinando o gerador e o discriminador
 discriminator.trainable = False
@@ -91,7 +117,6 @@ x = generator(gan_input)
 gan_output = discriminator(x)
 gan = Model(gan_input, gan_output)
 gan.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))
-
 
 # ### Set host address and port number
 host = "127.0.1.1"
@@ -130,6 +155,14 @@ for r in range(rounds):
         for _ in range(batch_count):
             noise = np.random.normal(0, 1, size=[batch_size, latent_dim])
             generated_images = generator.predict(noise)
+            image_batch = x_train[np.random.randint(0, x_train.shape[0], size=batch_size)]
+
+            X = np.concatenate([image_batch, generated_images])
+            y_dis = np.zeros(2 * batch_size)
+            y_dis[:batch_size] = 0.9  # Rótulos suavizados para o treinamento estável
+
+            # Treina o discriminador
+            d_loss = discriminator.train_on_batch(X, y_dis)
 
             noise = np.random.normal(0, 1, size=[batch_size, latent_dim])
             y_gen = np.ones(batch_size)
@@ -137,10 +170,11 @@ for r in range(rounds):
             # Treina a GAN (o gerador é treinado via gan)
             g_loss = gan.train_on_batch(noise, y_gen)
 
-        print(f'Round {r}, Época {e+1}/{epochs}, GAN Loss: {g_loss}')
+        print(f'Época {e+1}/{epochs}, Discriminador Loss: {d_loss}, GAN Loss: {g_loss}')
 
-    plot_generated_images(r, generator)
     
+    plot_generated_images(r, client_id,generator)
+
     msg = generator.get_weights()
     send_msg(s, msg)
 

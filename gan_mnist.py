@@ -38,7 +38,7 @@ def train_gan(epochs=1, batch_size=128):
             g_loss = gan.train_on_batch(noise, y_gen)
 
         print(f'Época {e+1}/{epochs}, Discriminador Loss: {d_loss}, GAN Loss: {g_loss}')
-        print(f'Discriminador Acurácia: {100 * d_acc}%')
+        #print(f'Discriminador Acurácia: {100 * d_acc}%')
 
         # Salva imagens geradas a cada 10 épocas
         if (e + 1) % 10 == 0:
