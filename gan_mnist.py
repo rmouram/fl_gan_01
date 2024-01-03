@@ -121,7 +121,7 @@ gan.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5))
 
 
 # Treina a GAN
-train_gan(epochs=30, batch_size=128)
+train_gan(epochs=150, batch_size=128)
 
 # generator.save('gan_model_gen')
 # discriminator.save('gan_model_dis')

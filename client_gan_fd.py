@@ -173,7 +173,7 @@ for r in range(rounds):
         print(f'Época {e+1}/{epochs}, Discriminador Loss: {d_loss}, GAN Loss: {g_loss}')
 
     
-    plot_generated_images(r, client_id,generator)
+    plot_generated_images(r, client_id, generator)
 
     msg = generator.get_weights()
     send_msg(s, msg)
